@@ -63,7 +63,7 @@ func main() {
 	log.Println("✅ Connected to Redis")
 
 	// Connect to Postgres
-	connStr := "user=user password=password dbname=ticketmain sslmode=disable"
+	connStr := "user=user password=password dbname=ticketmain sslmode=disable port=5433"
 	var err error
 	db, err = sql.Open("postgres", connStr)
 	if err != nil {
