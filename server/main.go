@@ -80,6 +80,38 @@ func main() {
 		})
 	})
 
+	app.Delete("/api/hold", func(c *fiber.Ctx) error {
+		var req HoldRequest
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).SendString("Invalid body")
+		}
+
+		lockKey := "seat:" + req.SeatID + ":lock"
+		ctx := c.Context()
+
+		val, err := rdb.Get(ctx, lockKey).Result()
+		if err == redis.Nil {
+			return c.JSON(fiber.Map{"status": "success", "message": "Seat already released"})
+		} else if err != nil {
+			return c.Status(500).SendString("Internal Server Error")
+		}
+
+		if val != req.UserID {
+			return c.Status(403).JSON(fiber.Map{
+				"status":  "fail",
+				"message": "You do not own this seat",
+			})
+		}
+
+		rdb.Del(ctx, lockKey)
+
+		return c.JSON(fiber.Map{
+			"status":  "success",
+			"message": "Seat released successfully",
+			"seatId":  req.SeatID,
+		})
+	})
+
 	app.Get("/api/seats", func(c *fiber.Ctx) error {
 		ctx := c.Context()
 
