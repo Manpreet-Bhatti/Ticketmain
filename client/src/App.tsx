@@ -1,35 +1,40 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import Venue from "./components/Venue";
+import layoutData from "../../venue_layout.json";
+import type { VenueLayout } from "./types";
+import { oneWeekFromTodayAt8PM } from "./utils/dateOneWeek";
+
+const venueLayout = layoutData as VenueLayout;
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [userId, setUserId] = useState<string>("");
+
+  useEffect(() => {
+    let storedId = localStorage.getItem("userId");
+    if (!storedId) {
+      storedId = `user_${Math.random().toString(36).substring(2, 11)}`;
+      localStorage.setItem("userId", storedId);
+    }
+    setUserId(storedId);
+  }, []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="flex flex-col items-center min-h-screen bg-gray-200 text-black p-8">
+      <header className="mb-6 w-full text-center">
+        <p className="text-black text-right w-full">User: {userId}</p>
+        <h1 className="text-4xl font-bold mb-2">{venueLayout.venue_name}</h1>
+        <h2 className="text-2xl font-semibold mb-2">
+          {oneWeekFromTodayAt8PM()}
+        </h2>
+        <h2 className="text-2xl font-semibold underline">
+          {venueLayout.venue_location}
+        </h2>
+      </header>
+      <main>
+        <Venue layout={venueLayout} />
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;
