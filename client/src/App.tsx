@@ -50,6 +50,31 @@ function App() {
   }, [apiUrl]);
 
   const handleSeatClick = (seatId: string) => {
+    const seatState = seatStates.find((s) => s.seatId === seatId);
+    const isHeld = seatState?.status === "HELD";
+
+    if (isHeld) {
+      if (seatState?.ownerId === userId) {
+        fetch(`${apiUrl}/api/hold`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ seatId, userId }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.status === "success") {
+              fetchSeats();
+            } else {
+              alert(data.message);
+            }
+          })
+          .catch((err) => console.error("Error releasing seat:", err));
+      } else {
+        alert("Seat already taken by another user");
+      }
+      return;
+    }
+
     fetch(`${apiUrl}/api/hold`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
