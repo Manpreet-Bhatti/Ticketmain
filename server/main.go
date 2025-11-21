@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -24,6 +27,20 @@ type SeatState struct {
 	OwnerID string `json:"ownerId,omitempty"`
 }
 
+type Section struct {
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Price    float64 `json:"price"`
+	RowStart int     `json:"row_start"`
+	RowEnd   int     `json:"row_end"`
+	ColStart int     `json:"col_start"`
+	ColEnd   int     `json:"col_end"`
+}
+
+type VenueLayout struct {
+	Sections []Section `json:"sections"`
+}
+
 type Hub struct {
 	clients    map[*websocket.Conn]bool
 	register   chan *websocket.Conn
@@ -32,6 +49,7 @@ type Hub struct {
 }
 
 var rdb *redis.Client
+var db *sql.DB
 
 func main() {
 	rdb = redis.NewClient(&redis.Options{
@@ -44,9 +62,40 @@ func main() {
 	}
 	log.Println("✅ Connected to Redis")
 
+	// Connect to Postgres
+	connStr := "user=user password=password dbname=ticketmain sslmode=disable"
+	var err error
+	db, err = sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err = db.Ping(); err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS orders (
+			id SERIAL PRIMARY KEY,
+			seat_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			amount INTEGER NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("✅ Connected to Postgres and ensured table exists")
+
+	// Parse venue layout
 	venueData, err := os.ReadFile("venue_layout.json")
 	if err != nil {
 		log.Fatalf("Failed to load venue data: %v", err)
+	}
+
+	var venueLayout VenueLayout
+	if err := json.Unmarshal(venueData, &venueLayout); err != nil {
+		log.Fatalf("Failed to parse venue data: %v", err)
 	}
 
 	hub := Hub{
@@ -115,6 +164,71 @@ func main() {
 			}
 		}
 	}))
+
+	app.Post("/api/purchase", func(c *fiber.Ctx) error {
+		var req HoldRequest
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).SendString("Invalid body")
+		}
+
+		lockKey := "seat:" + req.SeatID + ":lock"
+		ctx := c.Context()
+
+		val, err := rdb.Get(ctx, lockKey).Result()
+		if err == redis.Nil {
+			return c.Status(400).JSON(fiber.Map{"status": "fail", "message": "Seat not held"})
+		} else if err != nil {
+			return c.Status(500).SendString("Internal Server Error")
+		}
+
+		if val != req.UserID {
+			return c.Status(403).JSON(fiber.Map{"status": "fail", "message": "You do not own this seat"})
+		}
+
+		// Calculate price
+		var row, col int
+		_, err = fmt.Sscanf(req.SeatID, "r%d-c%d", &row, &col)
+		if err != nil {
+			return c.Status(400).SendString("Invalid seat ID format")
+		}
+
+		price := 0
+		for _, section := range venueLayout.Sections {
+			if row >= section.RowStart && row <= section.RowEnd && col >= section.ColStart && col <= section.ColEnd {
+				price = int(section.Price)
+				break
+			}
+		}
+
+		if price == 0 {
+			price = 100
+		}
+
+		_, err = db.Exec("INSERT INTO orders (seat_id, user_id, amount) VALUES ($1, $2, $3)", req.SeatID, req.UserID, price)
+		if err != nil {
+			log.Printf("DB error: %v", err)
+			return c.Status(500).SendString("Failed to process order")
+		}
+
+		rdb.Del(ctx, lockKey)
+
+		update := map[string]interface{}{
+			"type": "SEAT_UPDATE",
+			"payload": map[string]string{
+				"seatId":  req.SeatID,
+				"status":  "SOLD",
+				"ownerId": req.UserID,
+			},
+		}
+		msg, _ := json.Marshal(update)
+		hub.broadcast <- msg
+
+		return c.JSON(fiber.Map{
+			"status":  "success",
+			"message": "Purchase successful",
+			"seatId":  req.SeatID,
+		})
+	})
 
 	app.Post("/api/hold", func(c *fiber.Ctx) error {
 		var req HoldRequest
@@ -234,17 +348,39 @@ func main() {
 			return c.Status(500).SendString("Failed to fetch seat details")
 		}
 
-		var seats []SeatState
+		seatsMap := make(map[string]SeatState)
 		for key, cmd := range cmds {
 			userID, err := cmd.Result()
 			if err == nil {
 				seatID := key[5 : len(key)-5]
-				seats = append(seats, SeatState{
+				seatsMap[seatID] = SeatState{
 					SeatID:  seatID,
 					Status:  "HELD",
 					OwnerID: userID,
-				})
+				}
 			}
+		}
+
+		rows, err := db.Query("SELECT seat_id, user_id FROM orders")
+		if err != nil {
+			log.Printf("DB query error: %v", err)
+		} else {
+			defer rows.Close()
+			for rows.Next() {
+				var seatID, userID string
+				if err := rows.Scan(&seatID, &userID); err == nil {
+					seatsMap[seatID] = SeatState{
+						SeatID:  seatID,
+						Status:  "SOLD",
+						OwnerID: userID,
+					}
+				}
+			}
+		}
+
+		var seats []SeatState
+		for _, seat := range seatsMap {
+			seats = append(seats, seat)
 		}
 
 		return c.JSON(seats)
