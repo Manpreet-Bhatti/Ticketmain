@@ -5,6 +5,7 @@ interface VenueProps {
   layout: VenueLayout;
   seatStates: SeatState[];
   onSeatClick: (seatId: string) => void;
+  userId: string;
 }
 
 const StarSolid = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
@@ -23,23 +24,12 @@ const StarSolid = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const CheckIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-    {...props}
-  >
-    <path
-      fillRule="evenodd"
-      d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
-
-const Venue: React.FC<VenueProps> = ({ layout, seatStates, onSeatClick }) => {
+const Venue: React.FC<VenueProps> = ({
+  layout,
+  seatStates,
+  onSeatClick,
+  userId,
+}) => {
   const { dimensions, stage_area, sections } = layout;
   const { rows, cols } = dimensions;
 
@@ -71,16 +61,31 @@ const Venue: React.FC<VenueProps> = ({ layout, seatStates, onSeatClick }) => {
       const seatId = `${r}-${c}`;
       const seatState = seatStates.find((s) => s.seatId === seatId);
       const isHeld = seatState?.status === "HELD";
+      const isSold = seatState?.status === "SOLD";
+      const isOwner = seatState?.ownerId === userId;
 
       let sectionColorClass = "";
-      if (isHeld) {
-        sectionColorClass = "bg-green-500 hover:bg-green-600";
+
+      if (isSold) {
+        if (isOwner) {
+          sectionColorClass = "bg-purple-500 hover:bg-purple-600";
+        } else {
+          sectionColorClass =
+            "bg-gray-500 hover:bg-gray-600 cursor-not-allowed";
+        }
+      } else if (isHeld) {
+        if (isOwner) {
+          sectionColorClass = "bg-green-500 hover:bg-green-600";
+        } else {
+          sectionColorClass =
+            "bg-gray-500 hover:bg-gray-600 cursor-not-allowed";
+        }
       } else {
         switch (section.id) {
           case "vip_left_wing":
           case "vip_right_wing":
           case "vip_center":
-            sectionColorClass = "bg-yellow-500 hover:bg-yellow-600 ";
+            sectionColorClass = "bg-yellow-500 hover:bg-yellow-600";
             break;
           default:
             sectionColorClass = "bg-blue-500 hover:bg-blue-600";
@@ -94,13 +99,9 @@ const Venue: React.FC<VenueProps> = ({ layout, seatStates, onSeatClick }) => {
           onClick={() => onSeatClick(seatId)}
           title={`${section.name} - $${section.price}`}
         >
-          {isHeld ? (
-            <CheckIcon className="w-4 h-4 text-white" />
-          ) : (
-            (section.id === "vip_left_wing" ||
-              section.id === "vip_right_wing" ||
-              section.id === "vip_center") && <StarSolid className="w-4 h-4" />
-          )}
+          {(section.id === "vip_left_wing" ||
+            section.id === "vip_right_wing" ||
+            section.id === "vip_center") && <StarSolid className="w-4 h-4" />}
         </div>
       );
     }

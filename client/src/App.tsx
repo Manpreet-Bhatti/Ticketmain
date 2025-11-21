@@ -177,6 +177,7 @@ function App() {
           layout={venueLayout}
           seatStates={seatStates}
           onSeatClick={handleSeatClick}
+          userId={userId}
         />
         <div className="flex flex-col gap-6 pt-8">
           <div className="flex flex-col gap-3">
