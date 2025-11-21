@@ -118,6 +118,31 @@ function App() {
       });
   };
 
+  const handlePurchase = () => {
+    const heldSeat = seatStates.find(
+      (s) => s.status === "HELD" && s.ownerId === userId
+    );
+    if (!heldSeat) {
+      alert("You have no held seats to purchase");
+      return;
+    }
+
+    fetch(`${apiUrl}/api/purchase`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seatId: heldSeat.seatId, userId }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.status === "success") {
+          alert("Purchase successful!");
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch((err) => console.error("Error purchasing:", err));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
@@ -146,12 +171,34 @@ function App() {
           {venueLayout.venue_location}
         </h2>
       </header>
-      <main>
+      <main className="w-full grid grid-cols-[1fr_auto_1fr] gap-8">
+        <div />
         <Venue
           layout={venueLayout}
           seatStates={seatStates}
           onSeatClick={handleSeatClick}
         />
+        <div className="flex flex-col gap-6 pt-8">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-500 rounded" /> Held by you
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-purple-500 rounded" /> Purchased by you
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-gray-500 rounded" /> Held by others /
+              Sold
+            </div>
+          </div>
+
+          <button
+            onClick={handlePurchase}
+            className="px-6 py-3 cursor-pointer bg-[#7BA6DE] text-white font-bold rounded-lg shadow-lg hover:bg-[#3375cc] transition-colors"
+          >
+            Purchase Held Seats
+          </button>
+        </div>
       </main>
     </div>
   );
