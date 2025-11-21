@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Venue from "./components/Venue";
-import type { VenueLayout } from "./types";
+import type { VenueLayout, SeatState } from "./types";
 import { oneWeekFromTodayAt8PM } from "./utils/dateOneWeek";
 
 function App() {
@@ -13,11 +13,20 @@ function App() {
     return newId;
   });
   const [venueLayout, setVenueLayout] = useState<VenueLayout | null>(null);
+  const [seatStates, setSeatStates] = useState<SeatState[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+  const fetchSeats = () => {
+    fetch(`${apiUrl}/api/seats`)
+      .then((res) => res.json())
+      .then((data) => setSeatStates(data))
+      .catch((err) => console.error("Error fetching seats:", err));
+  };
+
   useEffect(() => {
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
     fetch(`${apiUrl}/api/venue`)
       .then((res) => {
         if (!res.ok) {
@@ -34,7 +43,34 @@ function App() {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+
+    fetchSeats();
+    const interval = setInterval(fetchSeats, 2000);
+    return () => clearInterval(interval);
+  }, [apiUrl]);
+
+  const handleSeatClick = (seatId: string) => {
+    fetch(`${apiUrl}/api/hold`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seatId, userId }),
+    })
+      .then((res) => {
+        if (res.status === 409) {
+          throw new Error("Seat already taken");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data.status === "success") {
+          fetchSeats();
+        }
+      })
+      .catch((err) => {
+        alert(err.message || "Error holding seat");
+        console.error("Error holding seat:", err);
+      });
+  };
 
   if (loading) {
     return (
@@ -65,7 +101,11 @@ function App() {
         </h2>
       </header>
       <main>
-        <Venue layout={venueLayout} />
+        <Venue
+          layout={venueLayout}
+          seatStates={seatStates}
+          onSeatClick={handleSeatClick}
+        />
       </main>
     </div>
   );

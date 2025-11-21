@@ -25,7 +25,7 @@ export interface VenueLayout {
 export type SeatStatus = "AVAILABLE" | "HELD" | "SOLD";
 
 export interface SeatState {
-  id: string;
+  seatId: string;
   status: SeatStatus;
   ownerId?: string;
 }
