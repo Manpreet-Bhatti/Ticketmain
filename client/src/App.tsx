@@ -45,8 +45,33 @@ function App() {
       });
 
     fetchSeats();
-    const interval = setInterval(fetchSeats, 2000);
-    return () => clearInterval(interval);
+
+    const wsUrl = apiUrl.replace("http", "ws") + "/ws";
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      console.log("Connected to WebSocket");
+    };
+
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "SEAT_UPDATE") {
+        const { seatId, status, ownerId } = message.payload;
+        setSeatStates((prev) => {
+          const filtered = prev.filter((s) => s.seatId !== seatId);
+
+          return [...filtered, { seatId, status, ownerId }];
+        });
+      }
+    };
+
+    socket.onclose = () => {
+      console.log("Disconnected from WebSocket");
+    };
+
+    return () => {
+      socket.close();
+    };
   }, [apiUrl]);
 
   const handleSeatClick = (seatId: string) => {
@@ -62,9 +87,7 @@ function App() {
         })
           .then((res) => res.json())
           .then((data) => {
-            if (data.status === "success") {
-              fetchSeats();
-            } else {
+            if (data.status !== "success") {
               alert(data.message);
             }
           })
@@ -86,10 +109,8 @@ function App() {
         }
         return res.json();
       })
-      .then((data) => {
-        if (data.status === "success") {
-          fetchSeats();
-        }
+      .then(() => {
+        // WebSocket will handle update
       })
       .catch((err) => {
         alert(err.message || "Error holding seat");
