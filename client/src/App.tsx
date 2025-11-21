@@ -1,22 +1,56 @@
 import { useEffect, useState } from "react";
 import Venue from "./components/Venue";
-import layoutData from "../../venue_layout.json";
 import type { VenueLayout } from "./types";
 import { oneWeekFromTodayAt8PM } from "./utils/dateOneWeek";
 
-const venueLayout = layoutData as VenueLayout;
-
 function App() {
-  const [userId, setUserId] = useState<string>("");
+  const [userId] = useState<string>(() => {
+    const stored = localStorage.getItem("userId");
+    if (stored) return stored;
+
+    const newId = `user_${Math.random().toString(36).substring(2, 11)}`;
+    localStorage.setItem("userId", newId);
+    return newId;
+  });
+  const [venueLayout, setVenueLayout] = useState<VenueLayout | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let storedId = localStorage.getItem("userId");
-    if (!storedId) {
-      storedId = `user_${Math.random().toString(36).substring(2, 11)}`;
-      localStorage.setItem("userId", storedId);
-    }
-    setUserId(storedId);
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    fetch(`${apiUrl}/api/venue`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch seating map");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setVenueLayout(data as VenueLayout);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching seating map:", err);
+        setError(err.message);
+        setLoading(false);
+      });
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+        Loading seating map...
+      </div>
+    );
+  }
+
+  if (error || !venueLayout) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-red-500">
+        Error: {error || "Seating map not found"}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-200 text-black p-8">
