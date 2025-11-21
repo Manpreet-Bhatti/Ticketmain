@@ -129,7 +129,6 @@ const Venue: React.FC<VenueProps> = ({ layout, seatStates, onSeatClick }) => {
       >
         {gridItems}
 
-        {/* Overlay for Stage Label */}
         <div
           className="absolute flex items-center justify-center text-white font-bold text-2xl pointer-events-none z-10"
           style={{
