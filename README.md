@@ -28,6 +28,7 @@ Follow these steps to run the system locally.
 - **Node.js** (v18 or higher)
 
 2. Start Infrastructure
+
 Create the Redis and PostgreSQL containers.
 
 ```bash
@@ -36,6 +37,7 @@ docker-compose up -d
 ```
 
 3. Start the Backend (Go)
+
 This runs the API server at `http://localhost:3000`. The application will automatically create the necessary database tables on startup.
 
 ```bash
@@ -46,6 +48,7 @@ go run main.go
 *You should see: `✅ Connected to Redis` and `✅ Connected to Postgres and ensured table exists`*.
 
 4. Start the Frontend (React)
+
 This runs the UI at `http://localhost:5173`.
 
 ```bash
