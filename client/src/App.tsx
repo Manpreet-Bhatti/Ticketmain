@@ -62,6 +62,8 @@ function App() {
 
           return [...filtered, { seatId, status, ownerId }];
         });
+      } else if (message.type === "RESET") {
+        setSeatStates([]);
       }
     };
 
@@ -143,6 +145,28 @@ function App() {
       .catch((err) => console.error("Error purchasing:", err));
   };
 
+  const handleReset = () => {
+    if (
+      !confirm(
+        "Are you sure you want to reset the seating map? This will clear all orders."
+      )
+    )
+      return;
+
+    fetch(`${apiUrl}/api/reset`, {
+      method: "POST",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.status === "success") {
+          alert("Seating map reset successful");
+        } else {
+          alert("Failed to reset seating map");
+        }
+      })
+      .catch((err) => console.error("Error resetting:", err));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
@@ -198,6 +222,13 @@ function App() {
             className="px-6 py-3 cursor-pointer bg-[#7BA6DE] text-white font-bold rounded-lg shadow-lg hover:bg-[#3375cc] transition-colors"
           >
             Purchase Held Seats
+          </button>
+
+          <button
+            onClick={handleReset}
+            className="px-6 py-3 cursor-pointer bg-red-500 text-white font-bold rounded-lg shadow-lg hover:bg-red-600 transition-colors mt-4"
+          >
+            Reset Demo
           </button>
         </div>
       </main>

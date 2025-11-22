@@ -318,6 +318,32 @@ func main() {
 		})
 	})
 
+	app.Post("/api/reset", func(c *fiber.Ctx) error {
+		ctx := c.Context()
+
+		_, err := db.Exec("TRUNCATE TABLE orders")
+		if err != nil {
+			log.Printf("DB Truncate error: %v", err)
+			return c.Status(500).SendString("Failed to reset database")
+		}
+
+		if err := rdb.FlushDB(ctx).Err(); err != nil {
+			log.Printf("Redis Flush error: %v", err)
+			return c.Status(500).SendString("Failed to reset Redis")
+		}
+
+		update := map[string]interface{}{
+			"type": "RESET",
+		}
+		msg, _ := json.Marshal(update)
+		hub.broadcast <- msg
+
+		return c.JSON(fiber.Map{
+			"status":  "success",
+			"message": "System reset successfully",
+		})
+	})
+
 	app.Get("/api/seats", func(c *fiber.Ctx) error {
 		ctx := c.Context()
 
