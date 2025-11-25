@@ -1,9 +1,5 @@
 # Ticketmain (High-Concurrency Ticket Engine)
 
-## 🚀 The Core Concept
-
-A robust, full-stack simulation of a high-demand ticketing platform (such as Ticketmaster) designed to handle extreme concurrency and prevent double bookings.
-
 **The Challenge:** In a standard web app, two users clicking "Buy" at the same time is fairly rare. In a ticket launch, it's guaranteed to happen. This project implements a **distributed locking mechanism** to prevent race conditions and "double bookings" when thousands of concurrent requests target the same inventory.
 
 ## 🛠️ Tech Stack & Architecture
